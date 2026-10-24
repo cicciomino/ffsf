@@ -1,0 +1,170 @@
+<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>OSCURITÀ — Horror 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{color-scheme:dark;--fg:#cfc8b4;--red:#b01414}
+html,body{margin:0;height:100%;background:#000;color:var(--fg);font-family:Georgia,"Times New Roman",serif;overflow:hidden}
+canvas{display:block;position:fixed;inset:0}
+#hud{position:fixed;inset:0;pointer-events:none;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);text-shadow:0 0 6px #000}
+#top{display:flex;justify-content:space-between;padding:14px 20px;font-size:15px;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+#bars{position:absolute;left:20px;bottom:20px;width:160px}
+#bars b{display:block;height:5px;background:#1a1a1a;margin-top:6px}
+#bars i{display:block;height:100%;width:100%;background:#d9c25a}
+#bars b+b i{background:#6fa86f}
+#msg{position:absolute;left:0;right:0;bottom:16%;text-align:center;font-size:20px;font-style:italic;padding:0 24px;opacity:0;transition:opacity .8s}
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 35%,#000 100%)}
+#flash{position:fixed;inset:0;pointer-events:none;background:var(--red);opacity:0}
+#card{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;box-sizing:border-box}
+#card div{max-width:620px}
+#card h1{font-weight:400;letter-spacing:.3em;font-size:34px;color:var(--red);margin:0 0 22px}
+#card p{font-size:19px;line-height:1.6}
+#card button{margin-top:18px;background:none;border:1px solid var(--red);color:var(--fg);font:inherit;letter-spacing:.2em;padding:12px 30px;cursor:pointer;pointer-events:auto}
+#card button:hover{background:var(--red)}
+#card small{display:block;margin-top:24px;opacity:.5;font-size:13px;line-height:1.6}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}html,body{touch-action:none}
+#tc{position:fixed;inset:0;pointer-events:none;display:none}
+#jb{position:fixed;width:100px;height:100px;border:1px solid #cfc8b455;border-radius:50%;display:none}
+#jk{position:absolute;left:35px;top:35px;width:30px;height:30px;border-radius:50%;background:#cfc8b455}
+.tb{position:fixed;right:calc(20px + env(safe-area-inset-right,0px));width:78px;height:78px;border-radius:50%;border:1px solid #cfc8b466;background:#0008;color:var(--fg);font:12px Georgia,serif;letter-spacing:.1em;pointer-events:auto;-webkit-tap-highlight-color:transparent}
+#tr{bottom:calc(30px + env(safe-area-inset-bottom,0px))}#tf{bottom:calc(120px + env(safe-area-inset-bottom,0px))}#tp{top:calc(48px + env(safe-area-inset-top,0px));width:46px;height:46px}
+</style></head><body>
+<div id="hud"><div id="top"><span id="ph"></span><span id="cnt"></span></div><div id="bars"><b><i id="bb"></i></b><b><i id="sb"></i></b></div><div id="msg"></div></div>
+<div id="vig"></div><div id="flash"></div>
+<div id="tc"><div id="jb"><i id="jk"></i></div><button class="tb" id="tp">II</button><button class="tb" id="tf">TORCIA</button><button class="tb" id="tr">CORRI</button></div>
+<div id="card"><div><h1></h1><p></p><button></button><small></small></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const CS=4,WH=3.2,T=.3,R=.38,$=id=>document.getElementById(id),rnd=n=>Math.floor(Math.random()*n),cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+const PH=[
+{n:"I · Il Manicomio",it:"pagine",need:5,bat:3,s:8,m:1,sp:3.5,fog:[0x040604,.11],amb:0x1c261c,col:"#5d6658",fc:"#2b2e28",bl:1,ic:0xe8e0c0,
+intro:"San Vitale, 1974. Ti svegli legato a una barella, le cinghie recise. Dai corridoi arriva un lento trascinare di piedi nudi. Trova le 5 pagine del diario del Dottor Moretti: solo così il portone si aprirà.",
+notes:["«Il paziente 9 non dorme più. Parla con le pareti.»","«Hanno murato la stanza 12. Sentiamo ancora bussare.»","«Non è malattia. Qualcosa è entrato in lui.»","«Se ascolti il respiro, è più vicino di quanto credi.»","«Non correre. Ti sente correre.»"]},
+{n:"II · Le Cantine",it:"sigilli",need:7,bat:4,s:10,m:1,sp:3.9,fog:[0x080403,.125],amb:0x2a1a12,col:"#4a3a2e",fc:"#1f1812",bl:2,ic:0xd08a30,
+intro:"Il portone si richiude alle tue spalle. Scale di pietra scendono sotto l’edificio, dove l’aria sa di terra e di ferro. Qualcosa ti ha seguito fin quaggiù. Spezza i 7 sigilli per risalire.",
+notes:["Il sigillo è caldo. Come carne.","Dietro al muro, qualcuno ripete il tuo nome.","Una mano di bambino ha lasciato questa impronta nel sangue.","Le catene si muovono da sole.","Hai sentito? Hanno smesso di respirare.","Non guardare in fondo al corridoio.","Ne manca uno solo."]},
+{n:"III · Il Bosco dei Sussurri",it:"bambole",need:9,bat:5,s:12,m:2,sp:4.3,fog:[0x03060c,.095],amb:0x1a2640,col:"#27402a",fc:"#141c12",bl:2,ic:0xb8d4ff,
+intro:"Sei fuori, ma la notte è senza stelle. Le siepi sono cresciute fino a formare un labirinto che respira. Ora sono in due a darti la caccia. Raccogli le 9 bambole di porcellana: ognuna ha il volto di chi è scomparso qui.",
+notes:["La bambola ha i tuoi occhi.","Un sussurro: «Girati».","Le foglie si muovono, ma non c’è vento.","Sono due. Non ti lasceranno solo.","Qualcosa canta una ninna nanna al contrario.","Una bambola è senza testa. Dov’è?","I passi dietro di te si fermano quando ti fermi.","Quasi finita. Non fidarti del silenzio.","L’ultima ti sta sorridendo."]},
+{n:"IV · La Cappella",it:"candele",need:12,bat:6,s:14,m:2,sp:4.7,fog:[0x0c0202,.1],amb:0x3a0e0e,col:"#4a1414",fc:"#180606",bl:3,ic:0xff5a20,
+intro:"La cappella nera. Le pareti sudano sangue e i due guardiani sono furiosi. Il rito finale richiede 12 candele: accendile tutte e il portale si aprirà. Corri solo se devi, e che Dio ti ascolti.",
+notes:["La cera è ancora calda.","Le pareti ti sussurrano il tuo nome.","Un coro di voci prega nel buio.","Le croci si sono capovolte.","Non è finita.","Il pavimento pulsa.","Metà del rito compiuto.","Senti il loro fiato sul collo.","Il sangue sale lungo i muri.","Ancora tre.","Due.","L’ultima candela."]}];
+let dm,ph=0,deaths=0,t0=0,st="menu",yaw=0,pitch=0,keys={},fl=true,locked=false,drag=false,bob=0,shake=0,hb=0,stepT=0,nextScare=20,dieT=0,got=0,bat=100,sta=100,doorOpen=false,flOff=0,W=8,cells,A,items,bats,mons,ex,lvl,mt,exCd=0,clk=new THREE.Clock(),time=0;
+const P=new THREE.Vector3(),ren=new THREE.WebGLRenderer({antialias:true}),scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.05,60),amb=new THREE.AmbientLight(0x111111,1),spot=new THREE.SpotLight(0xfff0d0,2.6,26,.55,.6,1.4),exL=new THREE.PointLight(0xff2200,1.2,12);
+ren.setSize(innerWidth,innerHeight);ren.setPixelRatio(Math.min(devicePixelRatio,"ontouchstart" in window?1:1.5));document.body.prepend(ren.domElement);
+cam.rotation.order="YXZ";scene.add(cam,amb,exL);cam.add(spot,spot.target);spot.target.position.set(0,0,-5);
+addEventListener("resize",()=>{ren.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()});
+/* AUDIO */
+let AC,master,nb;
+function aud(){if(AC)return;AC=new(window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.8;master.connect(AC.destination);
+nb=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+[43,45.5,86].forEach((f,i)=>{const o=AC.createOscillator(),g=AC.createGain(),lp=AC.createBiquadFilter();o.type=i==2?"sine":"sawtooth";o.frequency.value=f;lp.type="lowpass";lp.frequency.value=140;g.gain.value=.05;o.connect(lp);lp.connect(g);g.connect(master);o.start()})}
+function noise(dur,f,q,v,ty="bandpass"){if(!AC)return;const s=AC.createBufferSource(),fi=AC.createBiquadFilter(),g=AC.createGain();s.buffer=nb;fi.type=ty;fi.frequency.value=f;fi.Q.value=q;g.gain.setValueAtTime(v,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);s.connect(fi);fi.connect(g);g.connect(master);s.start();s.stop(AC.currentTime+dur)}
+function tone(f,f2,dur,v,ty){if(!AC)return;const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.setValueAtTime(f,AC.currentTime);o.frequency.exponentialRampToValueAtTime(f2,AC.currentTime+dur);g.gain.setValueAtTime(v,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);o.connect(g);g.connect(master);o.start();o.stop(AC.currentTime+dur)}
+const sfx={beat(v){tone(60,35,.18,v,"sine");setTimeout(()=>tone(50,30,.2,v*.7,"sine"),160)},step(){noise(.08,420+Math.random()*200,1,.12,"lowpass")},bang(){noise(.7,160,.7,.6,"lowpass");tone(70,28,.7,.5,"square")},scream(){noise(1.8,1500,.4,.9);noise(1.2,4200,2,.6);tone(1100,250,1.7,.5,"sawtooth");tone(1700,400,1.7,.4,"square");tone(600,90,1.7,.5,"sawtooth");tone(40,18,1.6,.9,"sine");setTimeout(()=>{noise(1,2500,.5,.7);tone(1400,200,1.2,.4,"sawtooth")},350)},whisper(){noise(1.5,2600,3,.18)},growl(){tone(90,45,.8,.3,"sawtooth");noise(.8,300,1,.2)},pick(){tone(520,780,.25,.15,"sine")}};
+/* LIVELLO */
+function tex(col,bl){const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d");g.fillStyle=col;g.fillRect(0,0,256,256);
+for(let i=0;i<2500;i++){g.fillStyle=`rgba(0,0,0,${Math.random()*.2})`;g.fillRect(Math.random()*256,Math.random()*256,2,2+Math.random()*3)}
+for(let i=0;i<14;i++){const gr=g.createLinearGradient(0,0,0,256);gr.addColorStop(0,"rgba(0,0,0,.55)");gr.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=gr;g.fillRect(Math.random()*256,0,3+Math.random()*8,60+Math.random()*190)}
+for(let i=0;i<bl*6;i++){g.fillStyle="rgba(95,0,0,.55)";g.beginPath();g.arc(Math.random()*256,Math.random()*256,4+Math.random()*16,0,7);g.fill()}
+const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
+function mkMon(){const g=new THREE.Group(),m=new THREE.MeshStandardMaterial({color:0x060606,roughness:1}),pale=new THREE.MeshStandardMaterial({color:0x9a9a8c,roughness:.9,emissive:0x151510}),eye=new THREE.MeshBasicMaterial({color:0xff1010});
+const add=(geo,mat,x,y,z,rx=0,rz=0)=>{const o=new THREE.Mesh(geo,mat);o.position.set(x,y,z);o.rotation.set(rx,0,rz);g.add(o);return o};
+add(new THREE.BoxGeometry(.7,1.5,.4),m,0,1.15,0);const h=add(new THREE.SphereGeometry(.28,10,10),pale,0,2.15,.05);h.scale.set(.8,1.5,.8);
+add(new THREE.SphereGeometry(.05,6,6),eye,-.1,2.25,.28);add(new THREE.SphereGeometry(.05,6,6),eye,.1,2.25,.28);
+const jaw=add(new THREE.BoxGeometry(.18,.4,.05),m,0,1.85,.3);
+g.arms=[add(new THREE.BoxGeometry(.12,1.7,.12),m,-.5,1.0,.15,.3),add(new THREE.BoxGeometry(.12,1.7,.12),m,.5,1.0,.15,.3)];
+add(new THREE.BoxGeometry(.25,.9,.2),m,-.2,.45,0);add(new THREE.BoxGeometry(.25,.9,.2),m,.2,.45,0);return g}
+function mkMon2(){const g=new THREE.Group(),sk=new THREE.MeshStandardMaterial({color:0xa49f8c,roughness:.7,emissive:0x2a2418}),bk=new THREE.MeshBasicMaterial({color:0x000000}),rg=new THREE.MeshStandardMaterial({color:0x140d0b,roughness:1}),tt=new THREE.MeshBasicMaterial({color:0xe6e2c8}),ey=new THREE.MeshBasicMaterial({color:0xff2200}),bl=new THREE.MeshBasicMaterial({color:0x7a0000});
+const add=(p,geo,mat,x,y,z,rx=0,rz=0)=>{const o=new THREE.Mesh(geo,mat);o.position.set(x,y,z);o.rotation.set(rx,0,rz);p.add(o);return o};
+add(g,new THREE.BoxGeometry(.55,1.3,.32),rg,0,1.2,0,.3);add(g,new THREE.BoxGeometry(.1,.7,.1),sk,0,1.95,.2,.45);
+const head=new THREE.Group();head.position.set(0,2.2,.5);g.add(head);const sh=add(head,new THREE.SphereGeometry(.3,14,14),sk,0,.05,0);sh.scale.set(.85,1.5,.9);
+[-1,1].forEach(s=>{add(head,new THREE.SphereGeometry(.1,8,8),bk,s*.12,.18,.24);add(head,new THREE.SphereGeometry(.035,6,6),ey,s*.12,.18,.32)});
+add(head,new THREE.BoxGeometry(.3,.3,.1),bk,0,-.2,.27);for(let i=-2;i<=2;i++)add(head,new THREE.ConeGeometry(.025,.12,5),tt,i*.06,-.08,.33,Math.PI);
+const jaw=new THREE.Group();jaw.position.set(0,-.2,.2);head.add(jaw);add(jaw,new THREE.BoxGeometry(.28,.55,.14),sk,0,-.28,.1);add(jaw,new THREE.BoxGeometry(.14,.4,.03),bl,0,-.3,.18);for(let i=-2;i<=2;i++)add(jaw,new THREE.ConeGeometry(.025,.12,5),tt,i*.06,.03,.17);
+g.head=head;g.jaw=jaw;g.arms=[-1,1].map(s=>{const a=new THREE.Group();a.position.set(s*.42,1.7,.1);g.add(a);add(a,new THREE.BoxGeometry(.08,2,.08),sk,0,-1,0);for(let f=-1;f<=1;f++)add(a,new THREE.BoxGeometry(.025,.4,.025),tt,f*.05,-2.15,0,0,f*.2);return a});
+add(g,new THREE.BoxGeometry(.2,.9,.2),rg,-.2,.55,.1,-.3);add(g,new THREE.BoxGeometry(.2,.9,.2),rg,.2,.55,.1,-.3);const gl=new THREE.PointLight(0xff2000,.7,6);gl.position.set(0,2,.8);g.add(gl);return g}
+function build(i){const c=PH[i];W=c.s;if(lvl)scene.remove(lvl);lvl=new THREE.Group();scene.add(lvl);
+scene.fog=new THREE.FogExp2(c.fog[0],c.fog[1]);scene.background=new THREE.Color(c.fog[0]);amb.color.set(c.amb);amb.intensity=.9;
+cells=[];for(let k=0;k<W*W;k++)cells.push({n:1,e:1,s:1,w:1});
+const D=[["n",0,-1,"s"],["e",1,0,"w"],["s",0,1,"n"],["w",-1,0,"e"]],seen=new Set([0]),stk=[0];
+while(stk.length){const k=stk[stk.length-1],x=k%W,y=Math.floor(k/W),o=D.map(d=>[d,x+d[1],y+d[2]]).filter(([d,nx,ny])=>nx>=0&&ny>=0&&nx<W&&ny<W&&!seen.has(ny*W+nx));
+if(!o.length){stk.pop();continue}const [d,nx,ny]=o[rnd(o.length)],nk=ny*W+nx;cells[k][d[0]]=0;cells[nk][d[3]]=0;seen.add(nk);stk.push(nk)}
+for(let k=0;k<W*W*.14;k++){const x=1+rnd(W-2),y=1+rnd(W-2),d=D[rnd(4)];cells[y*W+x][d[0]]=0;cells[(y+d[2])*W+x+d[1]][d[3]]=0}
+const wm=new THREE.MeshStandardMaterial({map:tex(c.col,c.bl),roughness:.95}),fm=new THREE.MeshStandardMaterial({map:tex(c.fc,c.bl+1),roughness:1}),gS=new THREE.BoxGeometry(CS+T,WH,T),gE=new THREE.BoxGeometry(T,WH,CS+T);A=[];
+const wall=(cx,cz,sx,sz,geo)=>{const m=new THREE.Mesh(geo,wm);m.position.set(cx,WH/2,cz);lvl.add(m);A.push({x0:cx-sx/2,x1:cx+sx/2,z0:cz-sz/2,z1:cz+sz/2})};
+for(let y=0;y<W;y++)for(let x=0;x<W;x++){const cx=(x+.5)*CS,cz=(y+.5)*CS,c0=cells[y*W+x];
+if(c0.s)wall(cx,(y+1)*CS,CS+T,T,gS);if(c0.e)wall((x+1)*CS,cz,T,CS+T,gE);if(y==0)wall(cx,0,CS+T,T,gS);if(x==0)wall(0,cz,T,CS+T,gE)}
+const fp=new THREE.Mesh(new THREE.PlaneGeometry(W*CS,W*CS),fm);fp.rotation.x=-Math.PI/2;fp.position.set(W*CS/2,0,W*CS/2);fm.map.repeat.set(W,W);lvl.add(fp);
+const cp=new THREE.Mesh(new THREE.PlaneGeometry(W*CS,W*CS),fm);cp.rotation.x=Math.PI/2;cp.position.set(W*CS/2,WH,W*CS/2);lvl.add(cp);
+const free=[];for(let k=1;k<W*W;k++)free.push(k);free.sort(()=>Math.random()-.5);
+items=[];bats=[];const spot2=(k)=>[((k%W)+.5+(Math.random()-.5)*.5)*CS,(Math.floor(k/W)+.5+(Math.random()-.5)*.5)*CS];
+for(let k=0;k<c.need;k++){const [x,z]=spot2(free[k]),m=new THREE.Mesh(new THREE.PlaneGeometry(.38,.5),new THREE.MeshBasicMaterial({color:c.ic,side:THREE.DoubleSide}));m.position.set(x,1.1,z);lvl.add(m);items.push(m)}
+for(let k=0;k<c.bat;k++){const [x,z]=spot2(free[c.need+k]),m=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.25,8),new THREE.MeshBasicMaterial({color:0x66ccff}));m.position.set(x,.5,z);lvl.add(m);bats.push(m)}
+const ez=(W-.5)*CS;ex={x:W*CS-.15,z:ez};const dm=new THREE.MeshBasicMaterial({color:0xff2200});ex.m=dm;const dr=new THREE.Mesh(new THREE.BoxGeometry(.2,2.8,2.4),dm);dr.position.set(ex.x,1.4,ez);lvl.add(dr);exL.position.set(W*CS-1.5,1.6,ez);exL.color.set(0xff2200);
+mons=[];for(let k=0;k<c.m;k++){const g=mkMon2(),cx=k?0:W-1,cy=k?W-1:0;g.position.set((cx+.5)*CS,0,(cy+.5)*CS);lvl.add(g);mons.push({g,ch:0,pt:null,nx:null,rt:0,lc:-1,wait:12+k*10})}
+}
+const ci=p=>cl(Math.floor(p.z/CS),0,W-1)*W+cl(Math.floor(p.x/CS),0,W-1);
+function nextStep(f,t){if(f==t)return t;const par=new Map([[f,-1]]),q=[f];while(q.length){const k=q.shift();if(k==t)break;const c=cells[k],x=k%W;
+[[!c.n,k-W],[!c.e,k+1],[!c.s,k+W],[!c.w,k-1]].forEach(([o,n])=>{if(o&&!par.has(n)){par.set(n,k);q.push(n)}})}
+if(!par.has(t))return f;let k=t;while(par.get(k)!=f&&par.get(k)!=-1)k=par.get(k);return k}
+const blocked=(x,z)=>A.some(a=>x>a.x0-R&&x<a.x1+R&&z>a.z0-R&&z<a.z1+R);
+/* UI */
+function msg(t,ms=4200){const m=$("msg");m.textContent=t;m.style.opacity=1;clearTimeout(mt);mt=setTimeout(()=>m.style.opacity=0,ms)}
+function card(h,p,b,fn,s=""){const c=$("card");c.querySelector("h1").textContent=h;c.querySelector("p").textContent=p;const bt=c.querySelector("button");bt.textContent=b;bt.onclick=()=>{c.style.display="none";fn()};c.querySelector("small").innerHTML=s;c.style.display="flex";document.exitPointerLock&&document.exitPointerLock()}
+function begin(i){ph=i;cam.fov=72;cam.updateProjectionMatrix();if(master)master.gain.value=.8;$("flash").style.background="";build(i);const c=PH[i];P.set(CS/2,1.6,CS/2);yaw=cells[0].e?-Math.PI/2:Math.PI;pitch=0;got=0;bat=100;sta=100;fl=true;doorOpen=false;st="play";nextScare=20;shake=0;$("flash").style.opacity=0;clk.getDelta();$("ph").textContent=c.n;
+msg(c.intro.split(". ").slice(-1)[0].replace(/\.$/,"")+".",5500)}
+function die(m){st="dying";dieT=0;deaths++;dm=m;m.s=0;const dx=m.g.position.x-P.x,dz=m.g.position.z-P.z;yaw=Math.atan2(-dx,-dz);const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));m.g.position.set(P.x+f.x*2.4,0,P.z+f.z*2.4);m.g.rotation.y=yaw;m.g.jaw.rotation.x=.2;fl=true;spot.visible=true;spot.intensity=3;if(master)master.gain.value=.03}
+function endPhase(){st="card";if(ph>=3){const s=Math.round((Date.now()-t0)/1000);card("SEI LIBERO?","Il portale si apre e l’aria fredda ti riempie i polmoni. Corri senza voltarti. Dietro di te, nel buio, qualcosa sussurra il tuo nome con la tua stessa voce.\n\nTempo: "+Math.floor(s/60)+" min "+s%60+" s · Morti: "+deaths,"RICOMINCIA",()=>{deaths=0;t0=Date.now();ph=0;intro(0)});return}
+intro(ph+1)}
+function intro(i){st="card";card(PH[i].n,PH[i].intro,"AVANTI",()=>begin(i),"WASD muovi · Shift corri · F torcia · P pausa · Mouse guarda<br>Resta in silenzio: torcia spenta e fermo, ti sentono meno.")}
+/* INPUT */
+addEventListener("keydown",e=>{keys[e.code]=1;if(e.code=="KeyF"&&st=="play"&&bat>0)fl=!fl;if(e.code=="KeyP"||e.code=="Escape"){if(st=="play")pause();else if(st=="paused"&&e.code=="KeyP")document.querySelector("#card button").click()}});addEventListener("keyup",e=>keys[e.code]=0);
+document.addEventListener("mousemove",e=>{if(st=="play"&&(locked||drag)){yaw-=e.movementX*.0022;pitch=cl(pitch-e.movementY*.0022,-1.3,1.3)}});
+ren.domElement.addEventListener("mousedown",()=>{drag=true;try{ren.domElement.requestPointerLock()}catch(e){}});addEventListener("mouseup",()=>drag=false);
+document.addEventListener("pointerlockchange",()=>{const was=locked;locked=document.pointerLockElement==ren.domElement;if(was&&!locked&&st=="play")pause()});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&st=="play")pause()});
+function pause(){st="paused";keys={};if(AC)AC.suspend();card("PAUSA","Il buio aspetta. Anche loro.","RIPRENDI",()=>{st="play";if(AC)AC.resume();clk.getDelta();try{ren.domElement.requestPointerLock()}catch(e){}},"P riprendi · WASD muovi · Shift corri · F torcia")}
+/* TOUCH */
+const mv={x:0,y:0};let jid=null,lid=null,jx=0,jy=0,lx=0,ly=0;const jb=$("jb"),jk=$("jk");
+if("ontouchstart" in window||navigator.maxTouchPoints>0)$("tc").style.display="block";
+function tmove(t){if(t.identifier==jid){let dx=(t.clientX-jx)/45,dy=(t.clientY-jy)/45;const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}mv.x=Math.abs(dx)<.2?0:dx;mv.y=Math.abs(dy)<.2?0:-dy;jk.style.transform=`translate(${dx*30}px,${dy*30}px)`}else if(t.identifier==lid){yaw-=(t.clientX-lx)*.006;pitch=cl(pitch-(t.clientY-ly)*.006,-1.3,1.3);lx=t.clientX;ly=t.clientY}}
+document.addEventListener("touchstart",e=>{if(st!="play"||e.target.closest("#card,.tb"))return;e.preventDefault();for(const t of e.changedTouches){if(t.clientX<innerWidth*.45&&jid==null){jid=t.identifier;jx=t.clientX;jy=t.clientY;jb.style.display="block";jb.style.left=jx-50+"px";jb.style.top=jy-50+"px"}else if(lid==null){lid=t.identifier;lx=t.clientX;ly=t.clientY}}},{passive:false});
+document.addEventListener("touchmove",e=>{if(st!="play")return;e.preventDefault();for(const t of e.changedTouches)tmove(t)},{passive:false});
+const tend=e=>{for(const t of e.changedTouches){if(t.identifier==jid){jid=null;mv.x=mv.y=0;jb.style.display="none";jk.style.transform=""}if(t.identifier==lid)lid=null}};
+document.addEventListener("touchend",tend);document.addEventListener("touchcancel",tend);
+const tbt=(id,dn,up)=>{const b=$(id);b.addEventListener("touchstart",e=>{e.preventDefault();e.stopPropagation();dn()},{passive:false});b.addEventListener("touchend",e=>{e.preventDefault();if(up)up()},{passive:false})};
+tbt("tr",()=>keys.ShiftLeft=1,()=>keys.ShiftLeft=0);tbt("tf",()=>{if(st=="play"&&bat>0)fl=!fl});tbt("tp",()=>{if(st=="play")pause()});
+/* GAME LOOP */
+function updM(m,dt,mov,spr){const p=m.g.position,d=Math.hypot(P.x-p.x,P.z-p.z);if(m.wait>0){m.wait-=dt;p.y=-5;return 99}p.y=0;
+const det=spr?16:mov?(fl?11:6):(fl?7:3.5);if(d<det){if(m.ch<=0)sfx.growl();m.ch=6}m.ch-=dt;const c=PH[ph],sp=m.ch>0?c.sp:c.sp*.5,mc=ci(p),pc=ci(P);let tx,tz;
+if(m.ch>0&&mc==pc){tx=P.x;tz=P.z}else{if(mc!=m.lc){m.lc=mc;m.rt=0}if(m.pt==null||mc==m.pt)m.pt=rnd(W*W);m.rt-=dt;if(m.rt<=0){m.nx=nextStep(mc,m.ch>0?pc:m.pt);m.rt=.3}tx=((m.nx%W)+.5)*CS;tz=(Math.floor(m.nx/W)+.5)*CS}
+const a=Math.atan2(tx-p.x,tz-p.z),dd=Math.hypot(tx-p.x,tz-p.z),s=Math.min(sp*dt,dd);p.x+=Math.sin(a)*s;p.z+=Math.cos(a)*s;
+m.g.rotation.y=m.ch>0?Math.atan2(P.x-p.x,P.z-p.z):a;m.g.arms.forEach((o,k)=>o.rotation.x=m.ch>0?-1.3+Math.sin(time*9+k*3)*.3:-.15+Math.sin(time*3+k*3)*.15);m.g.jaw.rotation.x=m.ch>0?.8+Math.sin(time*16)*.2:.25;m.g.head.rotation.z=Math.sin(time*(m.ch>0?12:2))*(m.ch>0?.25:.1);p.y=Math.abs(Math.sin(time*(m.ch>0?9:3)))*.08;return d}
+function upd(dt){time+=dt;const c=PH[ph];
+if(keys.ArrowLeft)yaw+=1.8*dt;if(keys.ArrowRight)yaw-=1.8*dt;
+let fw=cl((keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)+mv.y,-1,1),rt=cl((keys.KeyD?1:0)-(keys.KeyA?1:0)+mv.x,-1,1);const mov=Math.abs(fw)>.15||Math.abs(rt)>.15;
+const spr=mov&&keys.ShiftLeft&&sta>5;sta=cl(sta+(spr?-26:14)*dt,0,100);const sp=spr?5.6:3.2;
+if(mov){const l=Math.hypot(fw,rt),dx=(-Math.sin(yaw)*fw+Math.cos(yaw)*rt)/l*sp*dt,dz=(-Math.cos(yaw)*fw-Math.sin(yaw)*rt)/l*sp*dt;if(!blocked(P.x+dx,P.z))P.x+=dx;if(!blocked(P.x,P.z+dz))P.z+=dz;bob+=dt*sp*2.3;stepT-=dt;if(stepT<=0){sfx.step();stepT=spr?.3:.5}}
+shake=Math.max(0,shake-dt*.8);cam.position.set(P.x+(Math.random()-.5)*shake*.2,1.6+Math.sin(bob)*.05*(mov?1:0)+(Math.random()-.5)*shake*.2,P.z);cam.rotation.set(pitch,yaw,0);
+if(fl)bat-=dt*(1.1+ph*.2);if(bat<=0){bat=0;if(fl){fl=false;msg("La torcia si è spenta.",3000)}}
+let minD=99;mons.forEach(m=>{const d=updM(m,dt,mov,spr);minD=Math.min(minD,d);if(d<1.15&&m.wait<=0&&st=="play")die(m)});
+flOff-=dt;spot.visible=fl&&flOff<=0;let inten=2.6;if((minD<9&&Math.random()<.12)||(bat<15&&Math.random()<.2))inten=.15;spot.intensity=inten;
+items.forEach((m,k)=>{m.rotation.y+=dt*1.6;m.position.y=1.1+Math.sin(time*2+k)*.1});bats.forEach(m=>m.rotation.y+=dt*2);
+for(let k=items.length-1;k>=0;k--){const m=items[k];if(Math.hypot(m.position.x-P.x,m.position.z-P.z)<1.3){lvl.remove(m);items.splice(k,1);got++;sfx.pick();sfx.whisper();shake=.3;msg(c.notes[(got-1)%c.notes.length],5000);
+if(got>=c.need){doorOpen=true;ex.m.color.set(0x22ff55);exL.color.set(0x22ff55);setTimeout(()=>{msg("Il portone si è aperto. E loro lo hanno sentito. CORRI.",5000);sfx.bang();mons.forEach(m=>{m.ch=10;m.wait=0})},2500)}}}
+for(let k=bats.length-1;k>=0;k--){const m=bats[k];if(Math.hypot(m.position.x-P.x,m.position.z-P.z)<1.3){lvl.remove(m);bats.splice(k,1);bat=Math.min(100,bat+45);sfx.pick();msg("Batteria trovata.",2000)}}
+exCd-=dt;if(Math.hypot(P.x-ex.x,P.z-ex.z)<2.4){if(doorOpen)endPhase();else if(exCd<=0){exCd=4;msg(`Il portone è sigillato. Mancano ${c.need-got} ${c.it}.`,3000)}}
+hb-=dt;if(hb<=0&&minD<22){sfx.beat(.25+.55*(1-minD/22));hb=.35+minD/22*1.1}
+const dg=cl(1-minD/14,0,1);$("flash").style.opacity=dg*.25*(.6+.4*Math.sin(time*10));if(dg>.5)shake=Math.max(shake,dg*.25);
+nextScare-=dt;if(nextScare<=0){nextScare=18+Math.random()*25;const r=rnd(4);
+if(r==0){flOff=1.6;sfx.bang();msg("La luce è morta.",1800)}else if(r==1){sfx.whisper();msg(["«Sono dietro di te.»","«Non sei solo.»","«Spegni la luce.»","«Ti vedo.»"][rnd(4)],3000)}else if(r==2){sfx.bang();shake=.5}else{for(let k=0;k<6;k++)setTimeout(()=>sfx.step(),k*230);msg("Passi alle tue spalle…",2500)}}
+$("cnt").textContent=`${c.it} ${got}/${c.need}`;$("bb").style.width=bat+"%";$("sb").style.width=sta+"%";$("vig").style.opacity=.75+dg*.25}
+function dying(dt){dieT+=dt;time+=dt;const g=dm.g,k=cl((dieT-.35)/.18,0,1),f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),d=2.4-k*1.35,s=1+k*.15,fe=$("flash");
+if(!dm.s&&dieT>.35){dm.s=1;if(master)master.gain.value=1.4;sfx.scream()}
+g.position.set(P.x+f.x*d,-.9*k,P.z+f.z*d);g.scale.setScalar(s);g.arms.forEach((o,i)=>o.rotation.x=-.3-k*1.1+Math.sin(time*30+i)*.1*k);g.jaw.rotation.x=.2+k*1.0+(k?Math.sin(time*45)*.2:0);g.head.rotation.z=k?Math.sin(time*60)*.18:0;
+pitch=cl(Math.atan2(2.2*s-.9*k-1.6,Math.max(d-.5*s,.3)),-.3,1.2);cam.fov=72+k*34;cam.updateProjectionMatrix();
+cam.position.set(P.x+(Math.random()-.5)*.3*k,1.6+(Math.random()-.5)*.3*k,P.z);cam.rotation.set(pitch,yaw,(Math.random()-.5)*.25*k);spot.intensity=k?(Math.sin(time*80)>0?9:1.2):3;
+if(k>0){fe.style.background=Math.sin(time*70)>0?"#fff":"#b01414";fe.style.opacity=Math.random()*.7}else fe.style.opacity=0;
+if(dieT>2.8){st="card";$("flash").style.opacity=0;$("flash").style.background="";card("SEI MORTO",["Ti ha trovato.","Il buio ti ha inghiottito.","Hai sentito il suo respiro, ma era già tardi.","Nessuno verrà a cercarti."][rnd(4)],"RIPROVA LA FASE",()=>begin(ph))}}
+(function frame(){requestAnimationFrame(frame);const dt=Math.min(clk.getDelta(),.05);if(st=="play")upd(dt);else if(st=="dying")dying(dt);ren.render(scene,cam)})();
+card("OSCURITÀ","Quattro fasi. Quattro incubi. Un solo modo per uscire vivo. Gioca al buio, con le cuffie e il volume alto.","INIZIA",()=>{aud();t0=Date.now();intro(0)},"Mobile: gira il telefono in orizzontale · stick a sinistra, trascina a destra per guardare<br>Desktop: clicca nella scena per bloccare il mouse<br>WASD muovi · Shift corri · F torcia · P o Esc pausa");
+</script></body></html>
